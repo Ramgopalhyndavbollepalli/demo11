@@ -28,7 +28,7 @@ jobs:
           sudo mkdir -p /var/www/react-app
           sudo chown -R ubuntu:ubuntu /var/www/react-app
           cd /var/www/react-app
-          git clone https://<username>:${{ secrets.GITHUB_PAT }}@github.com/Ramgopalhyndavbollepalli/demo11.git .
+          git clone https://ramgopalhyndavbollepalli:${{ secrets.GITHUB_PAT }}@github.com/Ramgopalhyndavbollepalli/demo11.git .
           exit
           EOF
 
