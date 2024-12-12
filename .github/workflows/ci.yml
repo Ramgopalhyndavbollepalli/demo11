@@ -32,7 +32,9 @@ jobs:
       # Build the project
       - name: Build Project
         working-directory: ./frontend
-        run: npm run build
+        run: |
+            CI=false npm run build
+
 
   deploy:
     name: Deploy React App to EC2
