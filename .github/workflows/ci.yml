@@ -35,9 +35,11 @@ jobs:
         run: |
           CI=false npm run build
 
-      # Debug: Check build output
-      - name: Verify Build Directory
-        run: ls -la ./frontend/build
+      # Debug: Check Build Output
+      - name: Debug Build Output
+        run: |
+          ls -la ./frontend
+          ls -la ./frontend/build
 
   deploy:
     name: Deploy React App to EC2
@@ -55,18 +57,27 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Debug: Check SSH Agent
-      - name: Debug SSH Agent
-        run: ssh-add -l
+      # Debug Permissions and Environment
+      - name: Debug Environment
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
+          which pm2 || echo "PM2 not installed"
+          ls -ld /var/www || echo "No permissions for /var/www"
+          exit
+          EOF
+      # Debug: Check Build Step Output
+      - name: Debug Build Output
+        run: |
+          ls -la ./frontend
+          ls -la ./frontend/build
 
-      # Test SSH Connection
-      - name: Test SSH Connection
-        run: ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} "echo 'Connection successful!'"
+      # Debug: Verify Current Directory
+      - name: Verify Current Directory
+        run: pwd
 
       # Deploy the React app to EC2
       - name: Deploy React App
         run: |
-          # Stop the app and clean the deployment directory
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           pm2 stop react-app || true
           rm -rf /var/www/react-app/*
@@ -74,13 +85,8 @@ jobs:
           exit
           EOF
 
-          # Copy the build files to the EC2 instance
           scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/
 
-          # Verify the copied files on EC2
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} "ls -la /var/www/react-app"
-
-          # Start the app using PM2
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           cd /var/www/react-app
           pm2 start serve --name react-app -- -s . -l 3000
