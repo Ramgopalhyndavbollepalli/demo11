@@ -29,12 +29,11 @@ jobs:
         working-directory: ./frontend
         run: npm install
 
-      # Build the project
+     # Build the project
       - name: Build Project
         working-directory: ./frontend
         run: |
           CI=false npm run build
-
 
       # Debug: Check build output
       - name: Verify Build Directory
@@ -80,3 +79,7 @@ jobs:
           pm2 save
           exit
           EOF
+
+
+      
+
