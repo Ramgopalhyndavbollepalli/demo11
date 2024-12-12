@@ -29,7 +29,7 @@ jobs:
         working-directory: ./frontend
         run: npm install
 
-     # Build the project
+      # Build the project
       - name: Build Project
         working-directory: ./frontend
         run: |
@@ -55,14 +55,22 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
+      # Debug: Check SSH Agent
+      - name: Debug SSH Agent
+        run: ssh-add -l
+
+      # Test SSH Connection
+      - name: Test SSH Connection
+        run: ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} "echo 'Connection successful!'"
+
       # Deploy the React app to EC2
       - name: Deploy React App
         run: |
           # Stop the app and clean the deployment directory
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           pm2 stop react-app || true
-          sudo rm -rf /var/www/react-app/*
-          sudo mkdir -p /var/www/react-app
+          rm -rf /var/www/react-app/*
+          mkdir -p /var/www/react-app
           exit
           EOF
 
@@ -79,7 +87,3 @@ jobs:
           pm2 save
           exit
           EOF
-
-
-      
-
