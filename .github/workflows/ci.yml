@@ -37,9 +37,12 @@ jobs:
 
       # Debug: Check Build Output
       - name: Debug Build Output
+        working-directory: ./frontend
         run: |
-          ls -la ./frontend
-          ls -la ./frontend/build
+          echo "Contents of ./frontend"
+          ls -la .
+          echo "Contents of ./frontend/build"
+          ls -la ./build || echo "Build directory does not exist"
 
   deploy:
     name: Deploy React App to EC2
@@ -57,36 +60,31 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Debug Permissions and Environment
-      - name: Debug Environment
+      # Debug: Check EC2 Environment
+      - name: Debug EC2 Environment
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           which pm2 || echo "PM2 not installed"
           ls -ld /var/www || echo "No permissions for /var/www"
           exit
           EOF
-      # Debug: Check Build Step Output
-      - name: Debug Build Output
-        run: |
-          ls -la ./frontend
-          ls -la ./frontend/build
-
-      # Debug: Verify Current Directory
-      - name: Verify Current Directory
-        run: pwd
 
       # Deploy the React app to EC2
       - name: Deploy React App
         run: |
+          # Ensure target directory is clean and exists
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           pm2 stop react-app || true
-          rm -rf /var/www/react-app/*
-          mkdir -p /var/www/react-app
+          sudo rm -rf /var/www/react-app
+          sudo mkdir -p /var/www/react-app
+          sudo chown -R ubuntu:ubuntu /var/www/react-app
           exit
           EOF
 
+          # Transfer build files to EC2
           scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/
 
+          # Start the React app using PM2
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           cd /var/www/react-app
           pm2 start serve --name react-app -- -s . -l 3000
