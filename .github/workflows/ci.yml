@@ -33,15 +33,14 @@ jobs:
       - name: Build Project
         working-directory: ./frontend
         run: |
-          CI=false npm run build
+          echo "Starting the build process..."
+          CI=false npm run build || (echo "Build failed. Exiting." && exit 1)
 
       # Debug: Check Build Output
       - name: Debug Build Output
         working-directory: ./frontend
         run: |
-          echo "Contents of ./frontend"
-          ls -la .
-          echo "Contents of ./frontend/build"
+          echo "Listing contents of ./frontend/build"
           ls -la ./build || echo "Build directory does not exist"
 
   deploy:
@@ -60,35 +59,29 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Debug: Check EC2 Environment
-      - name: Debug EC2 Environment
+      # Clean and Prepare EC2 Deployment Directory
+      - name: Prepare EC2 Environment
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
-          which pm2 || echo "PM2 not installed"
-          ls -ld /var/www || echo "No permissions for /var/www"
-          exit
-          EOF
-
-      # Deploy the React app to EC2
-      - name: Deploy React App
-        run: |
-          # Ensure target directory is clean and exists
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
-          pm2 stop react-app || true
           sudo rm -rf /var/www/react-app
           sudo mkdir -p /var/www/react-app
           sudo chown -R ubuntu:ubuntu /var/www/react-app
           exit
           EOF
 
-          # Transfer build files to EC2
-          scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/
+      # Transfer Build Files
+      - name: Transfer Build Files to EC2
+        run: |
+          echo "Transferring files to EC2..."
+          scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/ || (echo "File transfer failed. Exiting." && exit 1)
 
-          # Start the React app using PM2
+      # Start React App on EC2
+      - name: Start React App
+        run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           cd /var/www/react-app
+          pm2 stop react-app || echo "No existing PM2 process to stop."
           pm2 start serve --name react-app -- -s . -l 3000
           pm2 save
           exit
           EOF
-
