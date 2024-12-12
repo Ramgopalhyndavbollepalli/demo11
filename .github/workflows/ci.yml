@@ -61,8 +61,8 @@ jobs:
           # Stop the app and clean the deployment directory
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           pm2 stop react-app || true
-          rm -rf /var/www/react-app/*
-          mkdir -p /var/www/react-app
+          sudo rm -rf /var/www/react-app/*
+          sudo mkdir -p /var/www/react-app
           exit
           EOF
 
