@@ -49,38 +49,40 @@ jobs:
     needs: build
 
     steps:
-      # Checkout the code again (required for the deploy step)
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
       # Setup SSH for secure file transfer
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Clean and Prepare EC2 Deployment Directory
-      - name: Prepare EC2 Environment
+      # Clone the Repository on EC2
+      - name: Clone Repository on EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
           sudo rm -rf /var/www/react-app
           sudo mkdir -p /var/www/react-app
           sudo chown -R ubuntu:ubuntu /var/www/react-app
+          cd /var/www/react-app
+          git clone https://github.com/<your-repo-owner>/<your-repo-name>.git .
           exit
           EOF
 
-      # Transfer Build Files
-      - name: Transfer Build Files to EC2
-        run: |
-          echo "Transferring files to EC2..."
-          scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/ || (echo "File transfer failed. Exiting." && exit 1)
-
-      # Start React App on EC2
-      - name: Start React App
+      # Install and Build on EC2
+      - name: Install and Build on EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
-          cd /var/www/react-app
-          pm2 stop react-app || echo "No existing PM2 process to stop."
+          cd /var/www/react-app/frontend
+          npm install
+          CI=false npm run build
+          exit
+          EOF
+
+      # Start the React App
+      - name: Start React App on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
+          cd /var/www/react-app/frontend/build
+          pm2 stop react-app || true
           pm2 start serve --name react-app -- -s . -l 3000
           pm2 save
           exit
