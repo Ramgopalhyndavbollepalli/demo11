@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
+      # Checkout the code
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 16
 
-      # Navigate to the frontend directory and install dependencies
+      # Install dependencies
       - name: Install Dependencies
         working-directory: ./frontend
         run: npm install
@@ -32,9 +32,11 @@ jobs:
       # Build the project
       - name: Build Project
         working-directory: ./frontend
-        run: |
-            CI=false npm run build
+        run: npm run build
 
+      # Debug: Check build output
+      - name: Verify Build Directory
+        run: ls -la ./frontend/build
 
   deploy:
     name: Deploy React App to EC2
@@ -42,32 +44,37 @@ jobs:
     needs: build
 
     steps:
-      # Checkout code
+      # Checkout the code again (required for the deploy step)
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Setup SSH
+      # Setup SSH for secure file transfer
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
+      # Deploy the React app to EC2
       - name: Deploy React App
-    run: |
-      ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
-      pm2 stop react-app || true
-      rm -rf /var/www/react-app/*
-      mkdir -p /var/www/react-app
-      exit
-      EOF
-      ls -la ./frontend/build
-      scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/
-      ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} "ls -la /var/www/react-app"
+        run: |
+          # Stop the app and clean the deployment directory
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
+          pm2 stop react-app || true
+          rm -rf /var/www/react-app/*
+          mkdir -p /var/www/react-app
+          exit
+          EOF
 
-      ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
-      cd /var/www/react-app
-      npm install
-      pm2 start npm --name react-app -- start
-      exit
-      EOF
+          # Copy the build files to the EC2 instance
+          scp -o StrictHostKeyChecking=no -r ./frontend/build/* ubuntu@${{ secrets.EC2_IP }}:/var/www/react-app/
 
+          # Verify the copied files on EC2
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} "ls -la /var/www/react-app"
+
+          # Start the app using PM2
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_IP }} << 'EOF'
+          cd /var/www/react-app
+          pm2 start serve --name react-app -- -s . -l 3000
+          pm2 save
+          exit
+          EOF
